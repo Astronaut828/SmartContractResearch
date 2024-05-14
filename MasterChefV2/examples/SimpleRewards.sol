@@ -154,3 +154,10 @@ contract StakingManager is Ownable{
         }
     }
 }
+
+
+/* 
+The updateStakersRewards is responsible to loop over all staker 
+and update their accumulated rewards every time someone deposits, 
+withdraws or harvests their earnings. 
+*/
