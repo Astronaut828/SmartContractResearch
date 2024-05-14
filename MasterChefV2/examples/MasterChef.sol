@@ -5,7 +5,7 @@
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
-
+// Contract Name: MasterChef
 
 pragma solidity ^0.6.0;
 
