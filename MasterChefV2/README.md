@@ -13,7 +13,7 @@ This research focuses on the MasterChefV2 staking contract, exploring its functi
 -   [How MasterChefV2 Works](#how-MasterChefV2-works)✅
 -   [Key Features](#key-features)
 -   [Research Questions](#research-questions)✅
--   [Researched Projects](#researched-projects-/-contracts)✅
+-   [Researched Projects](#researched-contracts)✅
 -   [Test Contract](#test-contract)
 -   [Implementation considerations](#implementation-considerations)
 -   [Conclusion](#conclusion)
@@ -125,7 +125,7 @@ The rewards mechanism involves the following steps:
 -   **Value Increase**: How does the reward mechanism of MasterChefV2 work?
 -   **Inventions**: taking a closer look at the migrator function and how the MasterChefV2 uses it to migrate LP tokens to a new contract.
 
-### Researched Projects / Contracts:✅
+### Researched Contracts:✅
 
 **MasterChefV2**:
 
