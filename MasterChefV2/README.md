@@ -13,7 +13,7 @@ This research focuses on the MasterChefV2 staking contract, exploring its functi
 -   [How MasterChefV2 Works](#how-MasterChefV2-works)✅
 -   [Key Features](#key-features)
 -   [Research Questions](#research-questions)✅
--   [Researched Projects](#Researched-Projects-/-Contracts)✅
+-   [Researched Projects](#researched-projects-/-contracts)✅
 -   [Test Contract](#test-contract)
 -   [Implementation considerations](#implementation-considerations)
 -   [Conclusion](#conclusion)
