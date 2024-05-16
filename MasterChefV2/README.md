@@ -219,9 +219,7 @@ See also: [Local copy of project contracts](./examples)<br>
 
 -   Deployed Contract: [StakingRewardsSushi Contract](https://etherscan.io/address/0x75ff3dd673ef9fc459a52e1054db5df2a1101212#code)
 -   Deployed Contract: [SushiMaker Contract](https://etherscan.io/address/0xe11fc0b43ab98eb91e9836129d1ee7c3bc95df50#code)
--   Deployed Contract: [SushiXSwap Contract](https://etherscan.io/address/0x011e52e4e40cf9498c79273329e8827b21e2e581#code)
 -   Deployed Contract: [SushiToken Contract](https://etherscan.io/token/0x6b3595068778dd592e39a122f4f5a5cf09c90fe2#code)
--   Deployed Contract: [BentoBoxV1 Contract](https://etherscan.io/address/0xf5bce5077908a1b7370b9ae04adc565ebd643966#code)
 
 ### Implementation considerations
 
@@ -233,7 +231,7 @@ See also: [Local copy of project contracts](./examples)<br>
 
 -   **Metal frontend considerations to have a good UX**
 
-    -   The frontend for the staking contract would need to display the staking pools, allow users to deposit and withdraw LP tokens, and show the rewards earned by staking.
+    -   The frontend for the staking contract would need to display the staking pool, allow users to deposit and withdraw LP tokens, and show the rewards earned by staking.
     -   The frontend would also need to interact with the staking contract to deposit and withdraw LP tokens, as well as claim rewards.
     -   The frontend would need to be user-friendly and provide a seamless experience for users to stake LP tokens and earn rewards, displaying the staking pools, the user's staked amount, and the rewards earned in a clear and intuitive way. (to prevent users from making mistakes and losing their funds and the need excessive user support.)
 
