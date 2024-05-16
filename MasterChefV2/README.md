@@ -4,7 +4,7 @@
 
 ### Description
 
-This research focuses on the MasterChefV2 staking contract, exploring its functionalities, benefits, and potential for templatization. MasterChefV2 is a staking contract that allows users to stake LP tokens to earn rewards. This research aims to understand how MasterChefV2 works, its key features, and how it can be templatized to create a staking contract template.
+This research focuses on the MasterChefV2 staking contract, exploring its functionalities, benefits, and potential for a template creation. MasterChefV2 is a staking contract that allows users to stake LP tokens to earn rewards. This research aims to understand how MasterChefV2 works, its key features, and how it can be templatized to create a staking contract template.
 
 ### Table of Contents
 
@@ -14,7 +14,6 @@ This research focuses on the MasterChefV2 staking contract, exploring its functi
 -   [Key Features](#key-features)
 -   [Research Questions](#research-questions)
 -   [Researched Contracts](#researched-contracts)
--   [Test Contract](#test-contract)
 -   [Implementation considerations](#implementation-considerations)
 -   [Conclusion](#conclusion)
 
@@ -23,6 +22,7 @@ This research focuses on the MasterChefV2 staking contract, exploring its functi
 MasterChefV2 is a staking contract derived from the original MasterChef contract by SushiSwap, which was a fork of Uniswap. This contract manages the staking of liquidity provider (LP) tokens and distributes SUSHI rewards to stakers. Users receive LP tokens when providing liquidity to a decentralized exchange (DEX) and can stake these tokens in the MasterChefV2 contract to earn SUSHI rewards. MasterChefV2 also interacts with the original MasterChef contract (MCV1) to handle reward distribution. The staking mechanism in MasterChefV2, as well as its interaction with the MasterChef contract, are the focus of this research.
 
 ### How MasterChefV2 Works
+
 **Staking Calculation and Reward Distribution**
 
 The rewards mechanism involves the following steps:
@@ -39,7 +39,6 @@ The rewards mechanism involves the following steps:
 
     The contract calculates SUSHI rewards for each user based on their staked amount and the pool’s allocation points. Rewards are distributed proportionally to the staked amount.
 
-
     **High-level overview of the rewards calculation:**
 
     The user's reward is calculated by dividing the user's staked amount (user.amount) by the total amount staked in the pool (lpSupply), and then multiplying this result by the reward rate per block (sushiPerBlock) and the number of blocks representing the amount of time (blocks). The user's pending reward is then updated based on the difference between the user's reward and the user's reward debt (user.rewardDebt).
@@ -47,7 +46,7 @@ The rewards mechanism involves the following steps:
 4. **Updating Pools:**
 
     Pools are periodically updated to recalculate the accumulated SUSHI per share and the last reward block.
-    
+
 5. **Harvesting Rewards:**
 
     Users can harvest their pending SUSHI rewards.
@@ -56,14 +55,15 @@ The rewards mechanism involves the following steps:
 
 ### Key Features
 
--   **Staking Calculation and Reward Distribution**: 
+-   **Staking Calculation and Reward Distribution**:
 
     `deposit` Function:
-    - Allows users to deposit LP tokens into the pool and updates their reward debt.
+
+    -   Allows users to deposit LP tokens into the pool and updates their reward debt.
 
     ```solidity
     function deposit(uint256 pid, uint256 amount, address to) public {
-    
+
     // updates the pool and user information
         PoolInfo memory pool = updatePool(pid);
         UserInfo storage user = userInfo[pid][to];
@@ -71,7 +71,7 @@ The rewards mechanism involves the following steps:
     // updates the user's deposited amount and reward debt (amount of SUSHI per share multiplied by the user's staked amount)
         user.amount = user.amount.add(amount);
         user.rewardDebt = user.rewardDebt.add(int256(amount.mul(pool.accSushiPerShare) / ACC_SUSHI_PRECISION));
-    
+
     // calls the rewarder interface to handle the reward distribution
         IRewarder _rewarder = rewarder[pid];
         if (address(_rewarder) != address(0)) {
@@ -84,14 +84,15 @@ The rewards mechanism involves the following steps:
         emit Deposit(msg.sender, pid, amount, to);
     }
     ```
-    [StakingRewardsSushi contract for more details on IRewarder](./examples/StakingRewardsSushi.sol) 
-    <br>
-    <br>
 
+    [StakingRewardsSushi contract for more details on IRewarder](./examples/StakingRewardsSushi.sol)
+    <br>
+    <br>
 
     `updatePool` Function:
-    - Updates reward variables for a specific pool.
-    - Calculates the SUSHI reward for the pool and updates accSushiPerShare.
+
+    -   Updates reward variables for a specific pool.
+    -   Calculates the SUSHI reward for the pool and updates accSushiPerShare.
 
     ```solidity
     /// @notice Update reward variables of the given pool.
@@ -122,11 +123,12 @@ The rewards mechanism involves the following steps:
     ```
 
     `sushiPerBlock` Function:
-    - Calculates the amount of SUSHI distributed per block.
-    
+
+    -   Calculates the amount of SUSHI distributed per block.
+
     ```solidity
     function sushiPerBlock() public view returns (uint256 amount) {
-    
+
     // calculates the SUSHI reward per block by multiplying the reward amount by the pool's allocation points
         amount = uint256(MASTERCHEF_SUSHI_PER_BLOCK)
             .mul(MASTER_CHEF.poolInfo(MASTER_PID).allocPoint) / MASTER_CHEF.totalAllocPoint();
@@ -134,8 +136,9 @@ The rewards mechanism involves the following steps:
     ```
 
     `pendingSushi` Function:
-    - Calculates the pending SUSHI rewards for a user in a specific pool.
-        
+
+    -   Calculates the pending SUSHI rewards for a user in a specific pool.
+
     ```solidity
     function pendingSushi(uint256 _pid, address _user) external view returns (uint256 pending) {
         PoolInfo memory pool = poolInfo[_pid];
@@ -192,14 +195,14 @@ The rewards mechanism involves the following steps:
             lpToken[_pid] = newLpToken;
         }
     ```
-    
 
 ### Research Questions
 
 -   **Can the MasterChefV2 functionality be templatized?** <br>
-     Exploring the potential to templatize the MasterChefV2 functionality.
+    Exploring the potential to templatize the MasterChefV2 functionality.
 
 **Side Quests**:
+
 -   **Value Increase**: How does the reward mechanism of MasterChefV2 work?
 -   **Inventions**: taking a closer look at the migrator function and how the MasterChefV2 uses it to migrate LP tokens to a new contract.
 
@@ -207,43 +210,36 @@ The rewards mechanism involves the following steps:
 
 **MasterChefV2**:
 
-- Deployed Contract: [MasterChefV2 Contract](https://etherscan.io/address/0xef0881ec094552b2e128cf945ef17a6752b4ec5d#code)
-- Deployed Contract: [MasterChef Contract](https://etherscan.io/address/0xc2edad668740f1aa35e4d8f227fb8e17dca888cd#code)
+-   Deployed Contract: [MasterChefV2 Contract](https://etherscan.io/address/0xef0881ec094552b2e128cf945ef17a6752b4ec5d#code)
+-   Deployed Contract: [MasterChef Contract](https://etherscan.io/address/0xc2edad668740f1aa35e4d8f227fb8e17dca888cd#code)
 
 See also: [Local copy of project contracts](./examples)<br>
 
 **SushiSwap Project**:
-- Deployed Contract: [StakingRewardsSushi Contract](https://etherscan.io/address/0x75ff3dd673ef9fc459a52e1054db5df2a1101212#code)
-- Deployed Contract: [SushiMaker Contract](https://etherscan.io/address/0xe11fc0b43ab98eb91e9836129d1ee7c3bc95df50#code)
-- Deployed Contract: [SushiXSwap Contract](https://etherscan.io/address/0x011e52e4e40cf9498c79273329e8827b21e2e581#code)
-- Deployed Contract: [SushiToken Contract](https://etherscan.io/token/0x6b3595068778dd592e39a122f4f5a5cf09c90fe2#code)
-- Deployed Contract: [BentoBoxV1 Contract](https://etherscan.io/address/0xf5bce5077908a1b7370b9ae04adc565ebd643966#code)
 
-
-### Test Contract
-
-**Deployed on Sepolia to explore the DN404 functionality**
-
--   **Deployed Contract**: 
--   **GitHub Repository**: 
+-   Deployed Contract: [StakingRewardsSushi Contract](https://etherscan.io/address/0x75ff3dd673ef9fc459a52e1054db5df2a1101212#code)
+-   Deployed Contract: [SushiMaker Contract](https://etherscan.io/address/0xe11fc0b43ab98eb91e9836129d1ee7c3bc95df50#code)
+-   Deployed Contract: [SushiXSwap Contract](https://etherscan.io/address/0x011e52e4e40cf9498c79273329e8827b21e2e581#code)
+-   Deployed Contract: [SushiToken Contract](https://etherscan.io/token/0x6b3595068778dd592e39a122f4f5a5cf09c90fe2#code)
+-   Deployed Contract: [BentoBoxV1 Contract](https://etherscan.io/address/0xf5bce5077908a1b7370b9ae04adc565ebd643966#code)
 
 ### Implementation considerations
 
 -   **Implementing MasterChefV2 into a MetalStaking 🥩 project**
 
-    -   The staking feature of the MasterChefV2 in combination with our template for liquidity pools could be a powerful template that allows users to create a own staking project. The staking contract could be used to stake LP tokens from the liquidity pool template and earn rewards in the form of a token. This would require the implementation of the staking contract, the liquidity pool template, and the reward distribution mechanism. 
+    -   The staking feature of the MasterChefV2 in combination with our template for liquidity pools could be a powerful template that allows users to create an own staking project. The staking contract could be used to stake LP tokens from the liquidity pool template and earn rewards in the form of a token. This would require the implementation of the staking contract, the liquidity pool template, and the reward distribution mechanism.
     -   The staking contract would need to interact with the liquidity pool template to deposit and withdraw LP tokens, as well as the reward distribution mechanism to calculate and distribute rewards to stakers.
     -   Extensive testing to ensure the template is secure and interacts correctly with the liquidity pool template and the reward distribution mechanism.
 
 -   **Metal frontend considerations to have a good UX**
 
-    -   The frontend for the staking contract would need to display the staking pools, allow users to deposit and withdraw LP tokens, and show the rewards earned by staking. 
+    -   The frontend for the staking contract would need to display the staking pools, allow users to deposit and withdraw LP tokens, and show the rewards earned by staking.
     -   The frontend would also need to interact with the staking contract to deposit and withdraw LP tokens, as well as claim rewards.
-    -   The frontend would need to be user-friendly and provide a seamless experience for users to stake LP tokens and earn rewards, displaying the staking pools, the user's staked amount, and the rewards earned in a clear and intuitive way. (to prevent users from making mistakes and losing their funds and the need exessive user support.)
+    -   The frontend would need to be user-friendly and provide a seamless experience for users to stake LP tokens and earn rewards, displaying the staking pools, the user's staked amount, and the rewards earned in a clear and intuitive way. (to prevent users from making mistakes and losing their funds and the need excessive user support.)
 
 -   **Implementation time considerations**
-    -   The main challenge in implementing the MasterChefV2 functionality into a MetalStaking 🥩 project would be the complexity of the staking contract and the reward distribution mechanism. The math and distrebution of rewards is a complex process that requires a deep understanding of the staking contract and the reward distribution mechanism. Testing for edgecases should be considered highest priority. 
+    -   The main challenge in implementing the MasterChefV2 functionality into a MetalStaking 🥩 project would be the complexity of the staking contract and the reward distribution mechanism. The math and distribution of rewards is a complex process that requires a deep understanding of the staking contract and the reward distribution mechanism. Testing for edge-cases should be considered the highest priority.
 
 ### Conclusion
 
-
+The MasterChefV2 staking contract is a powerful tool that could significantly enhance the MetalFunFactory token template by allowing users to add staking and reward distribution to their token. While it does not need to be a full DEX, it can provide a template for deploying tokens with additional features. Implementing this contract for a DEX template would require additional research and development, given the interactions with multiple helper contracts and the need for a deep understanding of the SushiSwap ecosystem. Adding the staking contract to the MetalFunFactory ecosystem could be a valuable addition. The gained knowledge from integrating the staking and reward distribution mechanism would be a great asset for future research and development and a good step towards a more complex DEX template.
