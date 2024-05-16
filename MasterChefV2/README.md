@@ -2,23 +2,23 @@
 
 ## Research on the staking contract MasterChefV2
 
-### Description✅
+### Description
 
 This research focuses on the MasterChefV2 staking contract, exploring its functionalities, benefits, and potential for templatization. MasterChefV2 is a staking contract that allows users to stake LP tokens to earn rewards. This research aims to understand how MasterChefV2 works, its key features, and how it can be templatized to create a staking contract template.
 
 ### Table of Contents
 
--   [Description](#description)✅
--   [Background](#background)✅
--   [How MasterChefV2 Works](#how-MasterChefV2-works)✅
+-   [Description](#description)
+-   [Background](#background)
+-   [How MasterChefV2 Works](#how-MasterChefV2-works)
 -   [Key Features](#key-features)
--   [Research Questions](#research-questions)✅
--   [Researched Projects](#researched-contracts)✅
+-   [Research Questions](#research-questions)
+-   [Researched Contracts](#researched-contracts)
 -   [Test Contract](#test-contract)
 -   [Implementation considerations](#implementation-considerations)
 -   [Conclusion](#conclusion)
 
-### Background✅
+### Background
 
 MasterChefV2 is a staking contract derived from the original MasterChef contract by SushiSwap, which was a fork of Uniswap. This contract manages the staking of liquidity provider (LP) tokens and distributes SUSHI rewards to stakers. Users receive LP tokens when providing liquidity to a decentralized exchange (DEX) and can stake these tokens in the MasterChefV2 contract to earn SUSHI rewards. MasterChefV2 also interacts with the original MasterChef contract (MCV1) to handle reward distribution. The staking mechanism in MasterChefV2, as well as its interaction with the MasterChef contract, are the focus of this research.
 
@@ -57,12 +57,43 @@ The rewards mechanism involves the following steps:
 ### Key Features
 
 -   **Staking Calculation and Reward Distribution**: 
+
+    `deposit` Function:
+    - Allows users to deposit LP tokens into the pool and updates their reward debt.
+
+    ```solidity
+    function deposit(uint256 pid, uint256 amount, address to) public {
     
+    // updates the pool and user information
+        PoolInfo memory pool = updatePool(pid);
+        UserInfo storage user = userInfo[pid][to];
+
+    // updates the user's deposited amount and reward debt (amount of SUSHI per share multiplied by the user's staked amount)
+        user.amount = user.amount.add(amount);
+        user.rewardDebt = user.rewardDebt.add(int256(amount.mul(pool.accSushiPerShare) / ACC_SUSHI_PRECISION));
+    
+    // calls the rewarder interface to handle the reward distribution
+        IRewarder _rewarder = rewarder[pid];
+        if (address(_rewarder) != address(0)) {
+            _rewarder.onSushiReward(pid, to, to, 0, user.amount);
+        }
+
+    // transfers the LP tokens from the user to the contract
+        lpToken[pid].safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Deposit(msg.sender, pid, amount, to);
+    }
+    ```
+    [StakingRewardsSushi contract for more details on IRewarder](./examples/StakingRewardsSushi.sol) 
+    <br>
+    <br>
+
+
     `updatePool` Function:
     - Updates reward variables for a specific pool.
     - Calculates the SUSHI reward for the pool and updates accSushiPerShare.
 
-    ````solidity
+    ```solidity
     /// @notice Update reward variables of the given pool.
     /// @param pid The index of the pool. See `poolInfo`.
     /// @return pool Returns the pool that was updated.
@@ -72,23 +103,70 @@ The rewards mechanism involves the following steps:
             uint256 lpSupply = lpToken[pid].balanceOf(address(this));
             if (lpSupply > 0) {
 
-            //subtracts the last reward block from the current block number
+        //subtracts the last reward block from the current block number
                 uint256 blocks = block.number.sub(pool.lastRewardBlock);
 
-            // calculates the SUSHI reward for the pool and divides it by the total allocation points
+        // calculates the SUSHI reward for the pool and divides it by the total allocation points
                 uint256 sushiReward = blocks.mul(sushiPerBlock()).mul(pool.allocPoint) / totalAllocPoint;
 
-            // adds the SUSHI reward per share to the accumulated SUSHI per share
+        // adds the SUSHI reward per share to the accumulated SUSHI per share
                 pool.accSushiPerShare = pool.accSushiPerShare.add((sushiReward.mul(ACC_SUSHI_PRECISION) / lpSupply).to128());
             }
-            // updates the last reward block and the pool in the poolInfo mapping
+        // updates the last reward block and the pool in the poolInfo mapping
             pool.lastRewardBlock = block.number.to64();
 
             poolInfo[pid] = pool;
             emit LogUpdatePool(pid, pool.lastRewardBlock, lpSupply, pool.accSushiPerShare);
         }
     }
-    ````
+    ```
+
+    `sushiPerBlock` Function:
+    - Calculates the amount of SUSHI distributed per block.
+    
+    ```solidity
+    function sushiPerBlock() public view returns (uint256 amount) {
+    
+    // calculates the SUSHI reward per block by multiplying the reward amount by the pool's allocation points
+        amount = uint256(MASTERCHEF_SUSHI_PER_BLOCK)
+            .mul(MASTER_CHEF.poolInfo(MASTER_PID).allocPoint) / MASTER_CHEF.totalAllocPoint();
+    }
+    ```
+
+    `pendingSushi` Function:
+    - Calculates the pending SUSHI rewards for a user in a specific pool.
+        
+    ```solidity
+    function pendingSushi(uint256 _pid, address _user) external view returns (uint256 pending) {
+        PoolInfo memory pool = poolInfo[_pid];
+
+    // retrieves the user's information from the userInfo mapping for the specified pool
+        UserInfo storage user = userInfo[_pid][_user];
+
+    // retrieves the accumulated SUSHI per share from the pool
+        uint256 accSushiPerShare = pool.accSushiPerShare;
+
+    // retrieves the LP token balance of the pool
+        uint256 lpSupply = lpToken[_pid].balanceOf(address(this));
+
+    // checks if the current block number is greater than the last reward block and the LP supply is not zero
+        if (block.number > pool.lastRewardBlock && lpSupply != 0) {
+
+    // calculates the blocks since the last reward block by subtracting the last reward block from the current block number
+            uint256 blocks = block.number.sub(pool.lastRewardBlock);
+
+    // calculates the SUSHI reward for the pool by multiplying the reward per block by the number of blocks and then dividing by the total allocation points of the pool
+            uint256 sushiReward = blocks.mul(sushiPerBlock()).mul(pool.allocPoint) / totalAllocPoint;
+
+    // adds the SUSHI reward per share to the accumulated SUSHI per share
+            accSushiPerShare = accSushiPerShare.add(sushiReward.mul(ACC_SUSHI_PRECISION) / lpSupply);
+        }
+
+    // calculates the user's pending SUSHI rewards by subtracting the user's reward debt from the user's staked amount multiplied by the accumulated SUSHI per share
+    // rewardDebt is the amount of SUSHI the user is entitled to but has not claimed yet (used to track the user's rewards)
+        pending = int256(user.amount.mul(accSushiPerShare) / ACC_SUSHI_PRECISION).sub(user.rewardDebt).toUInt256();
+    }
+    ```
 
 -   **Migration of Liquidity**:
     The "Vampire Attack" is a term used to describe the migration of liquidity from one project to another. MasterChefV2 uses a migrator contract to facilitate the migration of LP tokens from the original MasterChef contract (MCV1) to the new MasterChefV2 contract. This allows users to migrate their LP tokens and continue earning rewards in the new contract. The migrator contract is a key feature of MasterChefV2 that enables the migration of liquidity and ensures a smooth transition for users.
@@ -116,7 +194,7 @@ The rewards mechanism involves the following steps:
     ```
     
 
-### Research Questions✅
+### Research Questions
 
 -   **Can the MasterChefV2 functionality be templatized?** <br>
      Exploring the potential to templatize the MasterChefV2 functionality.
@@ -125,7 +203,7 @@ The rewards mechanism involves the following steps:
 -   **Value Increase**: How does the reward mechanism of MasterChefV2 work?
 -   **Inventions**: taking a closer look at the migrator function and how the MasterChefV2 uses it to migrate LP tokens to a new contract.
 
-### Researched Contracts:✅
+### Researched Contracts:
 
 **MasterChefV2**:
 
@@ -135,6 +213,7 @@ The rewards mechanism involves the following steps:
 See also: [Local copy of project contracts](./examples)<br>
 
 **SushiSwap Project**:
+- Deployed Contract: [StakingRewardsSushi Contract](https://etherscan.io/address/0x75ff3dd673ef9fc459a52e1054db5df2a1101212#code)
 - Deployed Contract: [SushiMaker Contract](https://etherscan.io/address/0xe11fc0b43ab98eb91e9836129d1ee7c3bc95df50#code)
 - Deployed Contract: [SushiXSwap Contract](https://etherscan.io/address/0x011e52e4e40cf9498c79273329e8827b21e2e581#code)
 - Deployed Contract: [SushiToken Contract](https://etherscan.io/token/0x6b3595068778dd592e39a122f4f5a5cf09c90fe2#code)
@@ -150,23 +229,21 @@ See also: [Local copy of project contracts](./examples)<br>
 
 ### Implementation considerations
 
--   **Implementing DN404 into a MetalDN404**
+-   **Implementing MasterChefV2 into a MetalStaking 🥩 project**
 
-    -   Deployment of a DN404 as well as a DN404 Mirror to allow the template to interact with the DN404 contract
-    -   Extensive Documentation
-    -   User-friendly interface for users to interact with the DN404 interface contract (Template)
-    -   Extensive testing to ensure the template is secure and interacts correctly with the DN404 contracts
+    -   The staking feature of the MasterChefV2 in combination with our template for liquidity pools could be a powerful template that allows users to create a own staking project. The staking contract could be used to stake LP tokens from the liquidity pool template and earn rewards in the form of a token. This would require the implementation of the staking contract, the liquidity pool template, and the reward distribution mechanism. 
+    -   The staking contract would need to interact with the liquidity pool template to deposit and withdraw LP tokens, as well as the reward distribution mechanism to calculate and distribute rewards to stakers.
+    -   Extensive testing to ensure the template is secure and interacts correctly with the liquidity pool template and the reward distribution mechanism.
 
 -   **Metal frontend considerations to have a good UX**
 
-    -   The MetalDN404 frontend should offer a user-friendly interface. This includes instructions on how to set up the NFT collection. Potentially a feature to upload the NFT collection to IPFS or other DB and provide the CID/URI to the contract. The frontend should also provide clear information on the user's DN404 token data like initial supply, current supply, and the current price of the DN404 token since finding this information on the many platforms involved in the DN404 token can be difficult. (DexTools (ERC20), Opensea (ERC721), Etherscan (Contract), etc.)
-    -   Documentation: The implementation process should be well-documented to ensure that users can easily understand and utilize the MetalDN404.
-        This includes providing clear instructions on how to set up a NFT collection to provide the necessary base URI/metadata for the ERC721 part of the DN404 token. As well as documentation for users to buy/sell/trade their ERC20 tokens as well as sell their ERC721 tokens and an explanation of the burn/mint process of the DN404 token.
-    -   Overall administrative tools and controls for managing the contract post-deployment.
+    -   The frontend for the staking contract would need to display the staking pools, allow users to deposit and withdraw LP tokens, and show the rewards earned by staking. 
+    -   The frontend would also need to interact with the staking contract to deposit and withdraw LP tokens, as well as claim rewards.
+    -   The frontend would need to be user-friendly and provide a seamless experience for users to stake LP tokens and earn rewards, displaying the staking pools, the user's staked amount, and the rewards earned in a clear and intuitive way. (to prevent users from making mistakes and losing their funds and the need exessive user support.)
 
 -   **Implementation time considerations**
-    -   The implementation of DN404 into a MetalDN404 would require a significant amount of time to ensure that the contract is secure, interacts correctly with the DN404 and that the frontend is user-friendly. This includes testing the contract for vulnerabilities and ensuring that the contract is secure against potential attacks, like sibyl attacks. The implementation that is used by the Asterix project shows that the DN404 can be complex and require a significant amount of time to implement safe and correctly. The synchronous transactions between DN404 and its Mirror contract can be a challenge to implement correctly when used in a MetalDN404.
+    -   The main challenge in implementing the MasterChefV2 functionality into a MetalStaking 🥩 project would be the complexity of the staking contract and the reward distribution mechanism. The math and distrebution of rewards is a complex process that requires a deep understanding of the staking contract and the reward distribution mechanism. Testing for edgecases should be considered highest priority. 
 
 ### Conclusion
 
-The introduction of DN-404 and ERC-404 tokens showcases the evolving capabilities of Smart Contracts and their impact on NFT fractionalization. However, the potential to templatize the DN404 requires users to have foundational knowledge of an NFT collection, meaning they must possess a collection of NFTs to utilize the DN404 functionality effectively. This could be a barrier to entry for some users, who need to create and host art in a way that allows the DN404 token to be minted correctly. Understanding the fractionalization of NFTs and the minting of the DN404 token can also a barrier for some. The burning and reminting of ERC-721 tokens, as well as fractional ownership through owning ERC-20 tokens, is a complex process that requires an understanding of ERC Tokens, including transfer, burning, and minting processes. All this being said, to deploy a DN404 and developing a project out of it has multiple facets that I am not discussing here, like setting up a community hub for the project's NFT holders and marketing the project. The DN404 token is a powerful tool for NFT fractionalization, but it requires a significant amount of time and effort to implement correctly.
+
