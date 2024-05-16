@@ -10,54 +10,135 @@ This research focuses on the MasterChefV2 staking contract, exploring its functi
 
 -   [Description](#description)✅
 -   [Background](#background)✅
--   [How MasterChefV2 Works](#how-MasterChefV2-works)
+-   [How MasterChefV2 Works](#how-MasterChefV2-works)✅
 -   [Key Features](#key-features)
 -   [Research Questions](#research-questions)✅
--   [Researched Projects](#researched-projects)
+-   [Researched Projects](#researched-projects)✅
 -   [Test Contract](#test-contract)
 -   [Implementation considerations](#implementation-considerations)
 -   [Conclusion](#conclusion)
 
 ### Background✅
 
-MasterChefV2 is a staking contract derived from the original MasterChef contract from the SushiSwap project. Sushiswap was originally a fork of Uniswap, but it did bring some innovations like MasterChef. The MasterChef contract allows users to stake LP tokens to earn rewards. LP tokens are tokens that represent liquidity provider tokens, which are tokens that users receive when they provide liquidity to a decentralized exchange. Users can stake these LP tokens in the MasterChef contract to earn rewards in the form of a project's native token (SUSHI in the case of SushiSwap). MasterChefV2 is an updated version of the original MasterChef contract, with additional features and improvements. These improvements include gas optimizations, security enhancements, and additional functionalities which are the focus of this research.
+MasterChefV2 is a staking contract derived from the original MasterChef contract by SushiSwap, which was a fork of Uniswap. This contract manages the staking of liquidity provider (LP) tokens and distributes SUSHI rewards to stakers. Users receive LP tokens when providing liquidity to a decentralized exchange (DEX) and can stake these tokens in the MasterChefV2 contract to earn SUSHI rewards. MasterChefV2 also interacts with the original MasterChef contract (MCV1) to handle reward distribution. The staking mechanism in MasterChefV2, as well as its interaction with the MasterChef contract, are the focus of this research.
 
 ### How MasterChefV2 Works
+**Staking Calculation and Reward Distribution**
 
--   **Fractional Ownership**: 
--   **Dynamic Minting and Burning**: 
+The rewards mechanism involves the following steps:
+
+1. **Setting up the pool:**
+
+    The owner adds a pool with allocation points, an LP token, and a rewarder. Allocation points determine reward distribution among pools.
+
+2. **Staking LP tokens:**
+
+    Users deposit their LP tokens into a pool. The contract tracks each user’s deposited amount and updates reward variables.
+
+3. **Reward Calculation:**
+
+    The contract calculates SUSHI rewards for each user based on their staked amount and the pool’s allocation points. Rewards are distributed proportionally to the staked amount.
+
+
+    **High-level overview of the rewards calculation:**
+
+    The user's reward is calculated by dividing the user's staked amount (user.amount) by the total amount staked in the pool (lpSupply), and then multiplying this result by the reward rate per block (sushiPerBlock) and the number of blocks representing the amount of time (blocks). The user's pending reward is then updated based on the difference between the user's reward and the user's reward debt (user.rewardDebt).
+
+4. **Updating Pools:**
+
+    Pools are periodically updated to recalculate the accumulated SUSHI per share and the last reward block.
+    
+5. **Harvesting Rewards:**
+
+    Users can harvest their pending SUSHI rewards.
+
+<br>
 
 ### Key Features
 
--   **Fractional Ownership**: 
+-   **Staking Calculation and Reward Distribution**: 
+    
+    `updatePool` Function:
+    - Updates reward variables for a specific pool.
+    - Calculates the SUSHI reward for the pool and updates accSushiPerShare.
 
-    [Link to INTERNAL MINT FUNCTIONS](https://github.com/Astronaut828/DN404Research/blob/76ed90e11312da04de08c90513a6b1e313c2efc0/DN404/DN404.sol#L412-L564)
-
--   **Pathing Mechanism**: 
     ````solidity
-    CODE SPEAKS LOUDER THEN WORDS
+    /// @notice Update reward variables of the given pool.
+    /// @param pid The index of the pool. See `poolInfo`.
+    /// @return pool Returns the pool that was updated.
+    function updatePool(uint256 pid) public returns (PoolInfo memory pool) {
+        pool = poolInfo[pid];
+        if (block.number > pool.lastRewardBlock) {
+            uint256 lpSupply = lpToken[pid].balanceOf(address(this));
+            if (lpSupply > 0) {
+
+            //subtracts the last reward block from the current block number
+                uint256 blocks = block.number.sub(pool.lastRewardBlock);
+
+            // calculates the SUSHI reward for the pool and divides it by the total allocation points
+                uint256 sushiReward = blocks.mul(sushiPerBlock()).mul(pool.allocPoint) / totalAllocPoint;
+
+            // adds the SUSHI reward per share to the accumulated SUSHI per share
+                pool.accSushiPerShare = pool.accSushiPerShare.add((sushiReward.mul(ACC_SUSHI_PRECISION) / lpSupply).to128());
+            }
+            // updates the last reward block and the pool in the poolInfo mapping
+            pool.lastRewardBlock = block.number.to64();
+
+            poolInfo[pid] = pool;
+            emit LogUpdatePool(pid, pool.lastRewardBlock, lpSupply, pool.accSushiPerShare);
+        }
+    }
     ````
 
--   **Integration with Existing Protocols**:
+-   **Migration of Liquidity**:
+    The "Vampire Attack" is a term used to describe the migration of liquidity from one project to another. MasterChefV2 uses a migrator contract to facilitate the migration of LP tokens from the original MasterChef contract (MCV1) to the new MasterChefV2 contract. This allows users to migrate their LP tokens and continue earning rewards in the new contract. The migrator contract is a key feature of MasterChefV2 that enables the migration of liquidity and ensures a smooth transition for users.
 
-    [Link to INTERNAL TRANSFER FUNCTIONS](https://github.com/Astronaut828/DN404Research/blob/76ed90e11312da04de08c90513a6b1e313c2efc0/DN404/DN404.sol#L632-L878)
+    The migration is handled by the following functions in the MasterChefV2 contract:
+
+    ```solidity
+        /// @notice Set the `migrator` contract. Can only be called by the owner.
+        /// @param _migrator The contract address to set.
+        function setMigrator(IMigratorChef _migrator) public onlyOwner {
+            migrator = _migrator;
+        }
+
+        /// @notice Migrate LP token to another LP contract through the `migrator` contract.
+        /// @param _pid The index of the pool. See `poolInfo`.
+        function migrate(uint256 _pid) public {
+            require(address(migrator) != address(0), "MasterChefV2: no migrator set");
+            IERC20 _lpToken = lpToken[_pid];
+            uint256 bal = _lpToken.balanceOf(address(this));
+            _lpToken.approve(address(migrator), bal);
+            IERC20 newLpToken = migrator.migrate(_lpToken);
+            require(bal == newLpToken.balanceOf(address(this)), "MasterChefV2: migrated balance must match");
+            lpToken[_pid] = newLpToken;
+        }
+    ```
+    
 
 ### Research Questions✅
 
--   **Can the MasterChefV2 functionality be templatized?**: Exploring the potential to templatize the MasterChefV2 functionality.
+-   **Can the MasterChefV2 functionality be templatized?** <br>
+     Exploring the potential to templatize the MasterChefV2 functionality.
 
-    **Side Quests**:
--   **Value Increase**: How does the reward mechanism of MasterChefV2 work and how does it bring value to the project?
--   **Inventions**: taking a closer look at the "Vampire Attack" and how the MasterChefV2 uses it to migrate liquidity from other projects to its own.
+**Side Quests**:
+-   **Value Increase**: How does the reward mechanism of MasterChefV2 work?
+-   **Inventions**: taking a closer look at the migrator function and how the MasterChefV2 uses it to migrate LP tokens to a new contract.
 
-### Researched Projects
+### Researched Projects / Contracts:✅
 
 **MasterChefV2**:
 
-See also: [Local copy of project contracts](https://github.com/Astronaut828/DN404Research/tree/main/examples)<br>
+- Deployed Contract: [MasterChefV2 Contract](https://etherscan.io/address/0xef0881ec094552b2e128cf945ef17a6752b4ec5d#code)
+- Deployed Contract: [MasterChef Contract](https://etherscan.io/address/0xc2edad668740f1aa35e4d8f227fb8e17dca888cd#code)
+
+See also: [Local copy of project contracts](./examples)<br>
 
 **SushiSwap Project**:
-
+- Deployed Contract: [SushiMaker Contract](https://etherscan.io/address/0xe11fc0b43ab98eb91e9836129d1ee7c3bc95df50#code)
+- Deployed Contract: [SushiXSwap Contract](https://etherscan.io/address/0x011e52e4e40cf9498c79273329e8827b21e2e581#code)
+- Deployed Contract: [SushiToken Contract](https://etherscan.io/token/0x6b3595068778dd592e39a122f4f5a5cf09c90fe2#code)
+- Deployed Contract: [BentoBoxV1 Contract](https://etherscan.io/address/0xf5bce5077908a1b7370b9ae04adc565ebd643966#code)
 
 
 ### Test Contract
