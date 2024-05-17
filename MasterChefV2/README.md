@@ -141,9 +141,10 @@ The rewards mechanism involves the following steps:
 
     ```solidity
     function pendingSushi(uint256 _pid, address _user) external view returns (uint256 pending) {
+    // retrieves the pool information from the poolInfo mapping for the specified pool (total allocation points, last reward block, accumulated SUSHI per share)
         PoolInfo memory pool = poolInfo[_pid];
 
-    // retrieves the user's information from the userInfo mapping for the specified pool
+    // retrieves the user's information from the userInfo mapping for the specified pool (staked amount, reward debt)
         UserInfo storage user = userInfo[_pid][_user];
 
     // retrieves the accumulated SUSHI per share from the pool
