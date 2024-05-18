@@ -5,9 +5,9 @@ import "forge-std/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./RewardToken.sol"; // can be replaced by any ERC20 token 
+import "./RewardToken.sol"; // can be replaced by any ERC20 token
 
-contract StakingManager is Ownable{
+contract StakingManager is Ownable {
     using SafeERC20 for IERC20; // Wrappers around ERC20 operations that throw on failure
 
     RewardToken public rewardToken; // Token to be payed as reward
@@ -52,7 +52,7 @@ contract StakingManager is Ownable{
      */
     function createPool(IERC20 _stakeToken) external onlyOwner {
         Pool memory pool;
-        pool.stakeToken =  _stakeToken;
+        pool.stakeToken = _stakeToken;
         pools.push(pool);
         uint256 poolId = pools.length - 1;
         emit PoolCreated(poolId);
@@ -74,15 +74,12 @@ contract StakingManager is Ownable{
         pool.tokensStaked = pool.tokensStaked + _amount;
         // Deposit tokens
         emit Deposit(msg.sender, _poolId, _amount);
-        pool.stakeToken.safeTransferFrom(
-            address(msg.sender),
-            address(this),
-            _amount
-        );
+        pool.stakeToken.safeTransferFrom(address(msg.sender), address(this), _amount);
     }
     /**
      * @dev Withdraw all tokens from an existing pool
      */
+
     function withdraw(uint256 _poolId) external {
         Pool storage pool = pools[_poolId];
         PoolStaker storage staker = poolStakers[_poolId][msg.sender];
@@ -101,10 +98,7 @@ contract StakingManager is Ownable{
 
         // Withdraw tokens
         emit Withdraw(msg.sender, _poolId, amount);
-        pool.stakeToken.safeTransfer(
-            address(msg.sender),
-            amount
-        );
+        pool.stakeToken.safeTransfer(address(msg.sender), amount);
     }
 
     /**
@@ -114,7 +108,8 @@ contract StakingManager is Ownable{
         updatePoolRewards(_poolId);
         Pool storage pool = pools[_poolId];
         PoolStaker storage staker = poolStakers[_poolId][msg.sender];
-        uint256 rewardsToHarvest = (staker.amount * pool.accumulatedRewardsPerShare / REWARDS_PRECISION) - staker.rewardDebt;
+        uint256 rewardsToHarvest =
+            (staker.amount * pool.accumulatedRewardsPerShare / REWARDS_PRECISION) - staker.rewardDebt;
         if (rewardsToHarvest == 0) {
             staker.rewardDebt = staker.amount * pool.accumulatedRewardsPerShare / REWARDS_PRECISION;
             return;
@@ -136,7 +131,8 @@ contract StakingManager is Ownable{
         }
         uint256 blocksSinceLastReward = block.number - pool.lastRewardedBlock;
         uint256 rewards = blocksSinceLastReward * rewardTokensPerBlock;
-        pool.accumulatedRewardsPerShare = pool.accumulatedRewardsPerShare + (rewards * REWARDS_PRECISION / pool.tokensStaked);
+        pool.accumulatedRewardsPerShare =
+            pool.accumulatedRewardsPerShare + (rewards * REWARDS_PRECISION / pool.tokensStaked);
         pool.lastRewardedBlock = block.number;
     }
 }
