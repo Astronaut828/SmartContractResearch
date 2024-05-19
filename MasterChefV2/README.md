@@ -6,6 +6,15 @@
 
 This research focuses on the MasterChefV2 staking contract, exploring its functionalities, benefits, and potential for a template creation. MasterChefV2 is a staking contract that allows users to stake LP tokens to earn rewards. This research aims to understand how MasterChefV2 works, its key features, and how it can be templatized to create a staking contract template.
 
+### Scope
+
+-   **Can the MasterChefV2 functionality be templatized?** <br>
+    Exploring the potential to templatize the MasterChefV2 functionality.
+
+**Side Quests**:
+
+-   **Value Increase**: How does the reward mechanism of MasterChefV2 work?
+
 ### Table of Contents
 
 -   [Description](#description)
@@ -19,29 +28,29 @@ This research focuses on the MasterChefV2 staking contract, exploring its functi
 
 ### Background
 
-MasterChefV2 is a staking contract derived from the original MasterChef contract by SushiSwap, which was a fork of Uniswap. This contract manages the staking of liquidity provider (LP) tokens and distributes SUSHI rewards to stakers. Users receive LP tokens when providing liquidity to a decentralized exchange (DEX) and can stake these tokens in the MasterChefV2 contract to earn SUSHI rewards. MasterChefV2 also interacts with the original MasterChef contract (MCV1) to handle reward distribution. The staking mechanism in MasterChefV2, as well as its interaction with the MasterChef contract, are the focus of this research.
+MasterChefV2 is a staking contract derived from the original MasterChef contract by SushiSwap, which was a fork of Uniswap. This contract manages the staking of liquidity provider (LP) tokens and distributes SUSHI rewards to stakers. Users receive LP tokens when providing liquidity to a decentralized exchange (DEX) and can stake these tokens in the MasterChefV2 contract to earn SUSHI rewards. MasterChefV2 also interacts with the original MasterChef contract (MCV1) to handle the minting of SUSHI tokens and the distribution of rewards. The staking and earning rewards mechanism of the MasterChefV2 contract is a key feature of the SushiSwap ecosystem and has been widely adopted by other DeFi projects. These features could be integrated into the MetalStaking 🥩 project to provide users with the ability to offer staking and reward distribution for their tokens.
 
 ### How MasterChefV2 Works
 
 **Staking Calculation and Reward Distribution**
 
-The rewards mechanism involves the following steps:
+The rewards mechanism of the MCV2 involves the following steps:
 
 1. **Setting up the pool:**
 
-    The owner adds a pool with allocation points, an LP token, and a rewarder. Allocation points determine reward distribution among pools.
+    The owner adds a pool with allocation points (the relative weight of the pool compared to other pools) and specifies the LP token (by address), and a rewarder (in the case of the MCV2 this is an interface that handles the reward distribution).
 
 2. **Staking LP tokens:**
 
-    Users deposit their LP tokens into a pool. The contract tracks each user’s deposited amount and updates reward variables.
+    Users deposit their LP tokens into a pool. The contract tracks each user’s deposited amount and updates reward variables. (i.e. the accumulated SUSHI per share depending on the total amount staked in the pool and the allocation points)
 
 3. **Reward Calculation:**
 
-    The contract calculates SUSHI rewards for each user based on their staked amount and the pool’s allocation points. Rewards are distributed proportionally to the staked amount.
+    The contract calculates SUSHI rewards for each user based on their staked amount and the pool’s allocation points. Rewards are distributed proportionally to the staked amount and the total amount staked in the pool, the allocation points and the number of blocks representing the amount of time. The user's pending reward is updated based on the difference between the user's reward and the user's reward debt. (the reward debt is the amount of SUSHI the user is entitled to but has not claimed yet (i.e. the current block number minus the block number of the last reward block))
 
     **High-level overview of the rewards calculation:**
 
-    The user's reward is calculated by dividing the user's staked amount (user.amount) by the total amount staked in the pool (lpSupply), and then multiplying this result by the reward rate per block (sushiPerBlock) and the number of blocks representing the amount of time (blocks). The user's pending reward is then updated based on the difference between the user's reward and the user's reward debt (user.rewardDebt).
+    The user's reward is calculated by dividing the user's staked amount (`user.amount`) by the total amount staked in the pool (`lpSupply`), and then multiplying this result by the reward rate per block (`sushiPerBlock`) and the number of blocks representing the amount of time (blocks). The user's pending reward is then updated based on the difference between the user's reward and the user's reward debt (`user.rewardDebt`). The `sushiPerBlock()` function calculates the amount of SUSHI distributed per block based on the reward amount and the pool's allocation points. Allocating points determine the reward distribution among pools and are set by the owner when adding a pool.
 
 4. **Updating Pools:**
 
@@ -49,7 +58,7 @@ The rewards mechanism involves the following steps:
 
 5. **Harvesting Rewards:**
 
-    Users can harvest their pending SUSHI rewards.
+    Users can harvest their pending SUSHI rewards by calling the harvest function. This function updates the user's reward debt and transfers the pending rewards to the user.
 
 <br>
 
@@ -64,15 +73,17 @@ The rewards mechanism involves the following steps:
     ```solidity
     function deposit(uint256 pid, uint256 amount, address to) public {
 
-    // updates the pool and user information
+    // retrieves the pool information from the poolInfo mapping for the specified pool
         PoolInfo memory pool = updatePool(pid);
+    // retrieves the user's information from the userInfo mapping for the specified pool
         UserInfo storage user = userInfo[pid][to];
 
     // updates the user's deposited amount and reward debt (amount of SUSHI per share multiplied by the user's staked amount)
-        user.amount = user.amount.add(amount);
+        user.amount = user.amount.add(amount); // adding the amount to the user's staked amount
+    // updates the user's reward debt to account for the new deposit
         user.rewardDebt = user.rewardDebt.add(int256(amount.mul(pool.accSushiPerShare) / ACC_SUSHI_PRECISION));
 
-    // calls the rewarder interface to handle the reward distribution
+    // calls the rewarder interface to handle the reward distribution (This is part of the interaction with the MasterChef contract)
         IRewarder _rewarder = rewarder[pid];
         if (address(_rewarder) != address(0)) {
             _rewarder.onSushiReward(pid, to, to, 0, user.amount);
@@ -81,6 +92,7 @@ The rewards mechanism involves the following steps:
     // transfers the LP tokens from the user to the contract
         lpToken[pid].safeTransferFrom(msg.sender, address(this), amount);
 
+    // emits a Deposit event with the user's address, pool ID, amount deposited, and the address to deposit to
         emit Deposit(msg.sender, pid, amount, to);
     }
     ```
@@ -104,19 +116,22 @@ The rewards mechanism involves the following steps:
             uint256 lpSupply = lpToken[pid].balanceOf(address(this));
             if (lpSupply > 0) {
 
-        //subtracts the last reward block from the current block number
+        // subtracts the last reward block from the current block number to determine the number of blocks since the last reward
                 uint256 blocks = block.number.sub(pool.lastRewardBlock);
 
-        // calculates the SUSHI reward for the pool and divides it by the total allocation points
+        // calculates the SUSHI reward for the pool by multiplying the reward per block by the number of blocks and then dividing by the total allocation points of the pool
                 uint256 sushiReward = blocks.mul(sushiPerBlock()).mul(pool.allocPoint) / totalAllocPoint;
 
-        // adds the SUSHI reward per share to the accumulated SUSHI per share
+        // updates the accumulated SUSHI per share by adding the newly calculated SUSHI rewards per LP token, scaled for precision
                 pool.accSushiPerShare = pool.accSushiPerShare.add((sushiReward.mul(ACC_SUSHI_PRECISION) / lpSupply).to128());
             }
-        // updates the last reward block and the pool in the poolInfo mapping
+        // updates the last reward block to the current block number
             pool.lastRewardBlock = block.number.to64();
 
+        // updates the pool information in the poolInfo mapping
             poolInfo[pid] = pool;
+
+        // emits an UpdatePool event with the pool ID, last reward block, LP supply, and accumulated SUSHI per share
             emit LogUpdatePool(pid, pool.lastRewardBlock, lpSupply, pool.accSushiPerShare);
         }
     }
@@ -132,6 +147,26 @@ The rewards mechanism involves the following steps:
     // calculates the SUSHI reward per block by multiplying the reward amount by the pool's allocation points
         amount = uint256(MASTERCHEF_SUSHI_PER_BLOCK)
             .mul(MASTER_CHEF.poolInfo(MASTER_PID).allocPoint) / MASTER_CHEF.totalAllocPoint();
+    }
+    ```
+
+    `harvest` Function:
+
+    -   Allows users to harvest their pending SUSHI rewards.
+
+    ```solidity
+    /// @notice Harvest proceeds for transaction sender to `to`.
+    /// @param pid The pool id
+    /// @param to Harvested SUSHI are transferred to this address.
+    function harvest(uint256 pid, address to) public {
+    // retrieves the pool information from the poolInfo mapping for the specified pool
+        PoolInfo memory pool = updatePool(pid);
+    // retrieves the user's information from the userInfo mapping for the specified pool
+        UserInfo storage user = userInfo[pid][msg.sender];
+    // calculates the user's pending SUSHI rewards
+        int256 accumulatedSushi = int256(user.amount.mul(pool.accSushiPerShare) / ACC_SUSHI_PRECISION);
+    // calculates the pending SUSHI rewards for the user by subtracting the user's reward debt from the accumulated SUSHI rewards
+        uint256 _pending = accumulatedSushi.sub(user.rewardDebt).toUInt256();
     }
     ```
 
@@ -159,7 +194,7 @@ The rewards mechanism involves the following steps:
     // calculates the blocks since the last reward block by subtracting the last reward block from the current block number
             uint256 blocks = block.number.sub(pool.lastRewardBlock);
 
-    // calculates the SUSHI reward for the pool by multiplying the reward per block by the number of blocks and then dividing by the total allocation points of the pool
+    // calculates the SUSHI reward for the pool by multiplying the rewards per block by the number of blocks and the pool's allocation points and dividing by the total allocation points.
             uint256 sushiReward = blocks.mul(sushiPerBlock()).mul(pool.allocPoint) / totalAllocPoint;
 
     // adds the SUSHI reward per share to the accumulated SUSHI per share
@@ -171,41 +206,6 @@ The rewards mechanism involves the following steps:
         pending = int256(user.amount.mul(accSushiPerShare) / ACC_SUSHI_PRECISION).sub(user.rewardDebt).toUInt256();
     }
     ```
-
--   **Migration of Liquidity**:
-    The "Vampire Attack" is a term used to describe the migration of liquidity from one project to another. MasterChefV2 uses a migrator contract to facilitate the migration of LP tokens from the original MasterChef contract (MCV1) to the new MasterChefV2 contract. This allows users to migrate their LP tokens and continue earning rewards in the new contract. The migrator contract is a key feature of MasterChefV2 that enables the migration of liquidity and ensures a smooth transition for users.
-
-    The migration is handled by the following functions in the MasterChefV2 contract:
-
-    ```solidity
-        /// @notice Set the `migrator` contract. Can only be called by the owner.
-        /// @param _migrator The contract address to set.
-        function setMigrator(IMigratorChef _migrator) public onlyOwner {
-            migrator = _migrator;
-        }
-
-        /// @notice Migrate LP token to another LP contract through the `migrator` contract.
-        /// @param _pid The index of the pool. See `poolInfo`.
-        function migrate(uint256 _pid) public {
-            require(address(migrator) != address(0), "MasterChefV2: no migrator set");
-            IERC20 _lpToken = lpToken[_pid];
-            uint256 bal = _lpToken.balanceOf(address(this));
-            _lpToken.approve(address(migrator), bal);
-            IERC20 newLpToken = migrator.migrate(_lpToken);
-            require(bal == newLpToken.balanceOf(address(this)), "MasterChefV2: migrated balance must match");
-            lpToken[_pid] = newLpToken;
-        }
-    ```
-
-### Research Questions
-
--   **Can the MasterChefV2 functionality be templatized?** <br>
-    Exploring the potential to templatize the MasterChefV2 functionality.
-
-**Side Quests**:
-
--   **Value Increase**: How does the reward mechanism of MasterChefV2 work?
--   **Inventions**: taking a closer look at the migrator function and how the MasterChefV2 uses it to migrate LP tokens to a new contract.
 
 ### Researched Contracts:
 
@@ -230,6 +230,8 @@ See also: [Local copy of project contracts](./examples)<br>
     -   The staking contract would need to interact with the liquidity pool template to deposit and withdraw LP tokens, as well as the reward distribution mechanism to calculate and distribute rewards to stakers.
     -   Extensive testing to ensure the template is secure and interacts correctly with the liquidity pool template and the reward distribution mechanism.
 
+    ## TODO: create a diagram of users, contracts, and potential interactions
+
 -   **Metal frontend considerations to have a good UX**
 
     -   The frontend for the staking contract would need to display the staking pool, allow users to deposit and withdraw LP tokens, and show the rewards earned by staking.
@@ -241,4 +243,4 @@ See also: [Local copy of project contracts](./examples)<br>
 
 ### Conclusion
 
-The MasterChefV2 staking contract is a powerful tool that could significantly enhance the MetalFunFactory token template by allowing users to add staking and reward distribution to their token. While it does not need to be a full DEX, it can provide a template for deploying tokens with additional features. Implementing this contract for a DEX template would require additional research and development, given the interactions with multiple helper contracts and the need for a deep understanding of the SushiSwap ecosystem. Adding the staking contract to the MetalFunFactory ecosystem could be a valuable addition. The gained knowledge from integrating the staking and reward distribution mechanism would be a great asset for future research and development and a good step towards a more complex DEX template.
+The MasterChefV2 staking contract is a powerful tool that could significantly enhance the MetalFunFactory token template by allowing users to add staking and reward distribution to their token. Adding the staking contract to the MetalFunFactory ecosystem could be a valuable addition. The gained knowledge from integrating the staking and reward distribution mechanism would be a great asset for future research and development and a good step towards a more complex DEX template.
