@@ -230,7 +230,7 @@ See also: [Local copy of project contracts](./examples)<br>
     -   The staking contract would need to interact with the liquidity pool template to deposit and withdraw LP tokens, as well as the reward distribution mechanism to calculate and distribute rewards to stakers.
     -   Extensive testing to ensure the template is secure and interacts correctly with the liquidity pool template and the reward distribution mechanism.
 
-    ## TODO: create a diagram of users, contracts, and potential interactions
+    ![Alt text](./public/diagram.png)
 
 -   **Metal frontend considerations to have a good UX**
 
@@ -240,6 +240,8 @@ See also: [Local copy of project contracts](./examples)<br>
 
 -   **Implementation time considerations**
     -   The main challenge in implementing the MasterChefV2 functionality into a MetalStaking 🥩 project would be the complexity of the staking contract and the reward distribution mechanism. The math and distribution of rewards is a complex process that requires a deep understanding of the staking contract and the reward distribution mechanism. Testing for edge-cases should be considered the highest priority.
+
+    Included in the research is a [local copy of the project contracts](./examples/SimpleRewards.sol) for further analysis and testing.
 
 ### Conclusion
 
