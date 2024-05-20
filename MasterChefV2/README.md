@@ -239,6 +239,7 @@ See also: [Local copy of project contracts](./examples)<br>
     -   The frontend would need to be user-friendly and provide a seamless experience for users to stake LP tokens and earn rewards, displaying the staking pools, the user's staked amount, and the rewards earned in a clear and intuitive way. (to prevent users from making mistakes and losing their funds and the need excessive user support.)
 
 -   **Implementation time considerations**
+
     -   The main challenge in implementing the MasterChefV2 functionality into a MetalStaking 🥩 project would be the complexity of the staking contract and the reward distribution mechanism. The math and distribution of rewards is a complex process that requires a deep understanding of the staking contract and the reward distribution mechanism. Testing for edge-cases should be considered the highest priority.
 
     Included in the research is a [local copy of the project contracts](./examples/SimpleRewards.sol) for further analysis and testing.

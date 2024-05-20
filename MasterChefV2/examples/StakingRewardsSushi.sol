@@ -1,10 +1,9 @@
 /**
- *Submitted for verification at Etherscan.io on 2021-08-11
-*/
+ * Submitted for verification at Etherscan.io on 2021-08-11
+ */
 
 // SPDX-License-Identifier: MIT
 // File: contracts/StakingRewards.sol
-
 
 pragma solidity 0.5.17;
 
@@ -44,7 +43,6 @@ pragma solidity 0.5.17;
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 */
 
-
 library Address {
     /**
      * @dev Returns true if `account` is a contract.
@@ -63,7 +61,9 @@ library Address {
 
         uint256 size;
         // solhint-disable-next-line no-inline-assembly
-        assembly { size := extcodesize(account) }
+        assembly {
+            size := extcodesize(account)
+        }
         return size > 0;
     }
 }
@@ -201,7 +201,7 @@ contract Owned {
         nominatedOwner = address(0);
     }
 
-    modifier onlyOwner {
+    modifier onlyOwner() {
         _onlyOwner();
         _;
     }
@@ -215,7 +215,7 @@ contract Owned {
 }
 
 contract Pausable is Owned {
-    uint public lastPauseTime;
+    uint256 public lastPauseTime;
     bool public paused;
 
     constructor() internal {
@@ -248,7 +248,7 @@ contract Pausable is Owned {
 
     event PauseChanged(bool isPaused);
 
-    modifier notPaused {
+    modifier notPaused() {
         require(!paused, "This action cannot be performed while the contract is paused");
         _;
     }
@@ -258,7 +258,7 @@ contract ReentrancyGuard {
     /// @dev counter to allow mutex lock with only one SSTORE operation
     uint256 private _guardCounter;
 
-    constructor () internal {
+    constructor() internal {
         // The counter starts at one to prevent changing it from zero to a non-zero
         // value, which is a more expensive operation.
         _guardCounter = 1;
@@ -311,7 +311,8 @@ library SafeERC20 {
         // or when resetting it to zero. To increase and decrease it, use
         // 'safeIncreaseAllowance' and 'safeDecreaseAllowance'
         // solhint-disable-next-line max-line-length
-        require((value == 0) || (token.allowance(address(this), spender) == 0),
+        require(
+            (value == 0) || (token.allowance(address(this), spender) == 0),
             "SafeERC20: approve from non-zero to non-zero allowance"
         );
         callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, value));
@@ -348,7 +349,8 @@ library SafeERC20 {
         (bool success, bytes memory returndata) = address(token).call(data);
         require(success, "SafeERC20: low-level call failed");
 
-        if (returndata.length > 0) { // Return data is optional
+        if (returndata.length > 0) {
+            // Return data is optional
             // solhint-disable-next-line max-line-length
             require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
         }
@@ -498,14 +500,15 @@ contract StakingRewards is IStakingRewards, RewardsDistributionRecipient, Reentr
         if (totalSupply() == 0) {
             return rewardPerTokenStored;
         }
-        return
-            rewardPerTokenStored.add(
-                lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(1e18).div(totalSupply())
-            );
+        return rewardPerTokenStored.add(
+            lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(1e18).div(totalSupply())
+        );
     }
 
     function earned(address account) public view returns (uint256) {
-        return _balances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(rewards[account]);
+        return _balances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(
+            rewards[account]
+        );
     }
 
     function getRewardForDuration() external view returns (uint256) {
@@ -514,7 +517,11 @@ contract StakingRewards is IStakingRewards, RewardsDistributionRecipient, Reentr
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function notifyRewardAmount(uint256 reward, address rewardHolder) external onlyRewardsDistribution updateReward(address(0)) {
+    function notifyRewardAmount(uint256 reward, address rewardHolder)
+        external
+        onlyRewardsDistribution
+        updateReward(address(0))
+    {
         // handle the transfer of reward tokens via `transferFrom` to reduce the number
         // of transactions required and ensure correctness of the reward amount
 
@@ -550,7 +557,7 @@ contract StakingRewards is IStakingRewards, RewardsDistributionRecipient, Reentr
     }
 
     // End rewards emission earlier
-    function updatePeriodFinish(uint timestamp) external onlyOwner updateReward(address(0)) {
+    function updatePeriodFinish(uint256 timestamp) external onlyOwner updateReward(address(0)) {
         periodFinish = timestamp;
     }
 
@@ -589,23 +596,16 @@ contract StakingRewards is IStakingRewards, RewardsDistributionRecipient, Reentr
 
 pragma solidity 0.5.17;
 
-
 /// @notice Interface which any contract has to implement
 /// to be used in MasterChefV2 contract as Rewarder
 interface IRewarder {
-    function onSushiReward(
-        uint256 pid,
-        address user,
-        address recipient,
-        uint256 sushiAmount,
-        uint256 newLpAmount
-    ) external;
+    function onSushiReward(uint256 pid, address user, address recipient, uint256 sushiAmount, uint256 newLpAmount)
+        external;
 
-    function pendingTokens(
-        uint256 pid,
-        address user,
-        uint256 sushiAmount
-    ) external view returns (IERC20[] memory, uint256[] memory);
+    function pendingTokens(uint256 pid, address user, uint256 sushiAmount)
+        external
+        view
+        returns (IERC20[] memory, uint256[] memory);
 }
 
 /// @notice Slice of methods of MasterChefV2 contract used in StakingRewardsSushi contract
@@ -625,10 +625,7 @@ contract StakingRewardsSushi is StakingRewards, IRewarder {
         address _rewardsToken,
         address _stakingToken,
         uint256 _rewardsDuration
-    )
-        public
-        StakingRewards(_owner, _rewardsDistribution, _rewardsToken, _stakingToken, _rewardsDuration)
-    {}
+    ) public StakingRewards(_owner, _rewardsDistribution, _rewardsToken, _stakingToken, _rewardsDuration) {}
 
     /// @notice Implements abstract methods from StakingRewards contract
     /// and returns total amount of staked tokens in the pool.
@@ -639,11 +636,11 @@ contract StakingRewardsSushi is StakingRewards, IRewarder {
     }
 
     /// @notice Returns list of rewardTokens and list of corresponding earned rewards of user
-    function pendingTokens(
-        uint256 pid,
-        address user,
-        uint256
-    ) external view returns (IERC20[] memory _rewardTokens, uint256[] memory _rewardAmounts) {
+    function pendingTokens(uint256 pid, address user, uint256)
+        external
+        view
+        returns (IERC20[] memory _rewardTokens, uint256[] memory _rewardAmounts)
+    {
         if (_isCorrectPoolId(pid)) {
             _rewardTokens = new IERC20[](1);
             _rewardTokens[0] = rewardsToken;
@@ -671,13 +668,10 @@ contract StakingRewardsSushi is StakingRewards, IRewarder {
     /// with correct pid value
     /// @dev On every call of this method StakingRewardsSushi will transfer earned tokens of user
     /// to passed recipient address.
-    function onSushiReward(
-        uint256 pid,
-        address user,
-        address recipient,
-        uint256,
-        uint256 newLpAmount
-    ) external onlyMCV2 {
+    function onSushiReward(uint256 pid, address user, address recipient, uint256, uint256 newLpAmount)
+        external
+        onlyMCV2
+    {
         require(_isCorrectPoolId(pid), "Wrong PID.");
         _payReward(user, recipient);
         _balances[user] = newLpAmount;
